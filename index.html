@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Retail Pulse</title>
+    
+    <!-- React & Libraries -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/prop-types@15.8.1/prop-types.min.js" crossorigin></script>
+    <script src="https://unpkg.com/recharts@2.12.7/umd/Recharts.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; }
+        .markdown h3 { font-weight: 800; color: #059669; margin-top: 1em; font-size: 1.1rem; }
+        .markdown ul { list-style: disc; margin-left: 1.5em; margin-bottom: 1em; font-size: 0.95rem; }
+        .markdown p { margin-bottom: 0.75rem; line-height: 1.5; }
+        .matrix-scroll::-webkit-scrollbar { height: 6px; }
+        .matrix-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        input, select, button { font-size: 16px !important; }
+        .fade-in { animation: fadeIn 0.3s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    </style>
+</head>
+<body>
+    <div id="root">
+        <div class="flex h-screen items-center justify-center text-slate-400 font-bold flex-col gap-4">
+            <div class="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-emerald-500"></div>
+            <div>Starting App...</div>
+        </div>
+    </div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo } = React;
+        const Recharts = window.Recharts || {};
+        const { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } = Recharts;
+
+        // --- CONSTANTS ---
+        const CATEGORIES = ['Choffa', '2 PC', '3 PC', 'Modulars', 'Double Chaise', 'Sofa & Loveseat', 'Leather'];
+        const STORAGE_KEY = 'retail_pulse_v4_final'; 
+        const GEMINI_KEY_STORAGE = 'rp_gemini_key';
+
+        // --- BUILT-IN ICONS (No External Dependency) ---
+        const Icons = {
+            ArrowLeft: (props) => <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>,
+            Plus: (props) => <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>,
+            Settings: (props) => <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.47a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>,
+            Store: (props) => <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7"/><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="M15 22v-4a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4"/><path d="M2 7h20"/><path d="M22 7v3a2 2 0 0 1-2 2v0a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 16 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 12 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 8 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 4 12v0a2 2 0 0 1-2-2V7"/></svg>,
+            Sparkles: (props) => <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>,
+            Trash: (props) => <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>,
+            Close: (props) => <svg {...props} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        };
+
+        const Icon = ({ name, size=20, className="" }) => {
+            const Component = Icons[name];
+            return Component ? <Component width={size} height={size} className={className} /> : null;
+        };
+
+        // --- STORAGE MANAGER ---
+        const useStorage = () => {
+            const [data, setData] = useState({ retailers: [], items: [] });
+            const [isReady, setIsReady] = useState(false);
+            
+            useEffect(() => {
+                const localData = localStorage.getItem(STORAGE_KEY);
+                if (localData) {
+                    try { setData(JSON.parse(localData)); } catch(e) { console.error("Local load error", e); }
+                }
+                setIsReady(true);
+            }, []);
+
+            useEffect(() => {
+                if (isReady) {
+                    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+                }
+            }, [data, isReady]);
+
+            const addRetailer = (r) => {
+                const newR = { ...r, id: Date.now().toString() };
+                setData(prev => ({ ...prev, retailers: [...prev.retailers, newR] }));
+            };
+
+            const deleteRetailer = (id) => {
+                if(!confirm("Delete this store and all its items?")) return;
+                setData(prev => ({
+                    retailers: prev.retailers.filter(r => r.id !== id),
+                    items: prev.items.filter(i => i.retailerId !== id)
+                }));
+            };
+
+            const addItem = (item) => {
+                const newI = { ...item, id: Date.now().toString() + Math.random().toString().slice(2,5) };
+                setData(prev => ({ ...prev, items: [...prev.items, newI] }));
+            };
+
+            const updateItem = (id, updates) => {
+                setData(prev => ({
+                    ...prev,
+                    items: prev.items.map(i => i.id === id ? { ...i, ...updates } : i)
+                }));
+            };
+
+            const deleteItem = (id) => {
+                if(!confirm("Delete item?")) return;
+                setData(prev => ({ ...prev, items: prev.items.filter(i => i.id !== id) }));
+            };
+
+            const restoreBackup = (json) => {
+                try {
+                    const parsed = JSON.parse(json);
+                    if (parsed.retailers && Array.isArray(parsed.items)) {
+                        setData(parsed);
+                        return true;
+                    }
+                    return false;
+                } catch (e) { return false; }
+            };
+
+            return { data, isReady, addRetailer, deleteRetailer, addItem, updateItem, deleteItem, restoreBackup };
+        };
+
+        // --- MAIN APP ---
+        const App = () => {
+            const { data, isReady, addRetailer, deleteRetailer, addItem, updateItem, deleteItem, restoreBackup } = useStorage();
+            const [view, setView] = useState('retailer-list');
+            const [activeRetailer, setActiveRetailer] = useState(null);
+            const [geminiKey, setGeminiKey] = useState(localStorage.getItem(GEMINI_KEY_STORAGE) || '');
+            const [showSettings, setShowSettings] = useState(false);
+
+            const callGemini = async (prompt) => {
+                if (!geminiKey) return "⚠️ Please enter your Gemini API Key in Settings.";
+                try {
+                    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`, {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+                    });
+                    const d = await res.json();
+                    return d.candidates?.[0]?.content?.parts?.[0]?.text || "No result.";
+                } catch (e) { return "Error connecting to AI. Check key/internet."; }
+            };
+
+            const downloadBackup = () => {
+                const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url; a.download = `retail_pulse_backup_${new Date().toISOString().slice(0,10)}.json`;
+                document.body.appendChild(a); a.click(); document.body.removeChild(a);
+            };
+
+            const handleRestore = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    if (restoreBackup(ev.target.result)) {
+                        alert("Database Restored Successfully!");
+                        setShowSettings(false);
+                    } else {
+                        alert("Invalid Backup File");
+                    }
+                };
+                reader.readAsText(file);
+            };
+
+            if (!isReady) return (
+                <div className="flex h-screen items-center justify-center text-slate-500 font-bold flex-col gap-4">
+                    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-emerald-500"></div>
+                    <div>Loading...</div>
+                </div>
+            );
+
+            return (
+                <div className="min-h-screen pb-10">
+                    <header className="bg-slate-900 text-white p-4 shadow-lg sticky top-0 z-50">
+                        <div className="max-w-7xl mx-auto flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                {view === 'dashboard' && <button onClick={() => setView('retailer-list')} className="p-1 hover:bg-slate-800 rounded-full"><Icon name="ArrowLeft" /></button>}
+                                <h1 className="text-xl font-bold flex items-center gap-2">
+                                    <span className="hidden sm:inline">Retail Pulse</span> 
+                                    <span className="text-emerald-400 text-sm font-light border-l border-slate-700 pl-2">Web</span>
+                                </h1>
+                            </div>
+                            <button onClick={() => setShowSettings(true)} className="p-2 text-slate-400 hover:text-white"><Icon name="Settings" /></button>
+                        </div>
+                    </header>
+
+                    {showSettings && (
+                        <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4 backdrop-blur-sm fade-in">
+                            <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl">
+                                <div className="flex justify-between items-center mb-6">
+                                    <h3 className="font-bold text-lg">Settings</h3>
+                                    <button onClick={() => setShowSettings(false)}><Icon name="Close" /></button>
+                                </div>
+                                <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Gemini AI Key</label>
+                                <input type="password" value={geminiKey} onChange={e => {setGeminiKey(e.target.value); localStorage.setItem(GEMINI_KEY_STORAGE, e.target.value);}} className="w-full border p-2 rounded mb-4" placeholder="Paste Key..." />
+                                
+                                <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Data Management</label>
+                                <div className="flex gap-2 mb-4">
+                                    <button onClick={downloadBackup} className="flex-1 bg-emerald-50 text-emerald-700 py-2 rounded font-bold text-sm">Backup (JSON)</button>
+                                    <label className="flex-1 bg-blue-50 text-blue-700 py-2 rounded font-bold text-sm text-center cursor-pointer">
+                                        Restore
+                                        <input type="file" className="hidden" accept=".json" onChange={handleRestore} />
+                                    </label>
+                                </div>
+                                <div className="text-xs text-slate-400 text-center">Version: 4.0 (Stable)</div>
+                            </div>
+                        </div>
+                    )}
+
+                    {view === 'retailer-list' ? (
+                        <RetailerListView retailers={data.retailers} onSelect={r => {setActiveRetailer(r); setView('dashboard');}} onAdd={addRetailer} onDelete={deleteRetailer} />
+                    ) : (
+                        <Dashboard 
+                            activeRetailer={activeRetailer}
+                            items={data.items.filter(i => String(i.retailerId) === String(activeRetailer.id))} 
+                            onAdd={(item) => addItem({ ...item, retailerId: activeRetailer.id })} 
+                            onUpdate={updateItem} 
+                            onDelete={deleteItem} 
+                            callGemini={callGemini}
+                        />
+                    )}
+                </div>
+            );
+        };
+
+        const RetailerListView = ({ retailers, onSelect, onAdd, onDelete }) => {
+            const [show, setShow] = useState(false);
+            const [form, setForm] = useState({ name: '', city: '' });
+            return (
+                <main className="max-w-5xl mx-auto p-6 space-y-6 fade-in">
+                    <div className="flex justify-between items-end">
+                        <h2 className="text-3xl font-bold text-slate-800">Territory</h2>
+                        <button onClick={() => setShow(!show)} className="bg-emerald-600 text-white px-4 py-2 rounded-lg font-bold shadow flex items-center gap-2"><Icon name="Plus" /> Store</button>
+                    </div>
+                    {show && (
+                        <form onSubmit={e => {e.preventDefault(); onAdd(form); setShow(false); setForm({name:'', city:''})}} className="bg-white p-4 rounded-xl shadow flex flex-col md:flex-row gap-4 animate-in slide-in-from-top-2">
+                            <input required placeholder="Store Name" className="border p-2 flex-1 rounded" value={form.name} onChange={e => setForm({...form, name: e.target.value})} />
+                            <input placeholder="City" className="border p-2 flex-1 rounded" value={form.city} onChange={e => setForm({...form, city: e.target.value})} />
+                            <button className="bg-slate-900 text-white px-6 py-2 rounded font-bold">Add</button>
+                        </form>
+                    )}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {retailers.map(r => (
+                            <div key={r.id} onClick={() => onSelect(r)} className="bg-white p-5 rounded-xl border hover:shadow-lg cursor-pointer relative group transition-all">
+                                <div className="flex justify-between items-start mb-2"><div className="text-emerald-600 bg-emerald-50 p-2 rounded-lg"><Icon name="Store" /></div></div>
+                                <h3 className="font-bold text-lg">{r.name}</h3>
+                                <p className="text-sm text-slate-500">📍 {r.city || 'N/A'}</p>
+                                <button onClick={e => {e.stopPropagation(); onDelete(r.id)}} className="absolute top-2 right-2 text-red-300 hover:text-red-500 p-2 opacity-0 group-hover:opacity-100 transition-opacity"><Icon name="Trash" /></button>
+                            </div>
+                        ))}
+                    </div>
+                    {retailers.length === 0 && !show && <div className="text-center py-20 text-slate-400 border-2 border-dashed rounded-xl">No stores. Add one.</div>}
+                </main>
+            );
+        };
+
+        const Dashboard = ({ items, activeRetailer, onAdd, onUpdate, onDelete, callGemini }) => {
+            const [show, setShow] = useState(false);
+            const [editId, setEditId] = useState(null);
+            const [form, setForm] = useState({ model: '', category: CATEGORIES[0], price: '', sales: '', notes: '' });
+            const [aiRes, setAiRes] = useState(null);
+            const [aiLoad, setAiLoad] = useState(false);
+
+            const getSeg = p => { const v = parseFloat(p); return v < 1099 ? 'Good' : v < 1999 ? 'Better' : 'Best'; };
+            const total = items.reduce((a, b) => a + (parseFloat(b.sales) || 0), 0);
+
+            const analyze = async () => {
+                setAiLoad(true);
+                const inv = items.map(i => `${i.model} (${i.category}) $${i.price} [${getSeg(i.price)}] Sales: $${i.sales}`).join('\n');
+                const res = await callGemini(`Analyze floor for ${activeRetailer.name}. Total Sales: $${total}. Inventory:\n${inv}\n\nProvide Executive Summary, Gaps, and 3 Actions.`);
+                setAiRes(res);
+                setAiLoad(false);
+            };
+
+            const pieData = useMemo(() => {
+                const segs = { Good: 0, Better: 0, Best: 0 };
+                items.forEach(i => segs[getSeg(i.price)] += (parseFloat(i.sales) || 0));
+                return Object.keys(segs).map(k => ({ name: k, value: segs[k] })).filter(x => x.value > 0);
+            }, [items]);
+            const SEGMENT_COLORS = { Good: '#FCD34D', Better: '#60A5FA', Best: '#34D399' };
+
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                const payload = {
+                    model: form.model,
+                    category: form.category,
+                    price: parseFloat(form.price) || 0,
+                    sales: parseFloat(form.sales) || 0,
+                    notes: form.notes
+                };
+                
+                if (editId) {
+                    onUpdate(editId, payload);
+                } else {
+                    onAdd(payload);
+                }
+                
+                setShow(false);
+                setForm({ model: '', category: CATEGORIES[0], price: '', sales: '', notes: '' });
+                setEditId(null);
+                alert('Item Saved!');
+            };
+
+            const startEdit = (item) => {
+                setEditId(item.id);
+                setForm(item);
+                setShow(true);
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            };
+
+            return (
+                <main className="max-w-7xl mx-auto p-4 space-y-6 fade-in">
+                    <div className="bg-white p-4 rounded-xl border flex flex-col md:flex-row justify-between items-center shadow-sm gap-4">
+                        <div className="flex gap-6">
+                            <div><label className="text-xs font-bold text-slate-400">VOLUME</label><div className="font-bold text-xl">${total.toLocaleString()}</div></div>
+                            <div><label className="text-xs font-bold text-slate-400">SLOTS</label><div className="font-bold text-xl">{items.length}</div></div>
+                        </div>
+                        <div className="flex gap-2">
+                            <button onClick={analyze} className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold shadow flex gap-2 hover:bg-indigo-700 items-center"><Icon name="Sparkles" size={16} /> Analyze</button>
+                            <button onClick={() => {setEditId(null); setForm({model:'', category:CATEGORIES[0], price:'', sales:'', notes:''}); setShow(!show)}} className="bg-emerald-500 text-white px-4 py-2 rounded-lg font-bold shadow hover:bg-emerald-600 flex gap-2 items-center"><Icon name="Plus" size={16} /> Item</button>
+                        </div>
+                    </div>
+
+                    {(aiLoad || aiRes) && (
+                        <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4 backdrop-blur-sm">
+                            <div className="bg-white w-full max-w-2xl max-h-[80vh] rounded-xl flex flex-col shadow-xl overflow-hidden">
+                                <div className="p-4 border-b bg-indigo-600 text-white flex justify-between items-center font-bold"><span>✨ AI Report</span><button onClick={() => setAiRes(null)}><Icon name="Close" /></button></div>
+                                <div className="p-6 overflow-y-auto bg-slate-50 text-sm markdown">
+                                    {aiLoad ? <div className="text-center py-10 animate-pulse">Analyzing...</div> : <div dangerouslySetInnerHTML={{__html: aiRes.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>')}} />}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {show && (
+                        <form onSubmit={handleSubmit} className="bg-white p-6 rounded-xl shadow-xl grid grid-cols-2 md:grid-cols-4 gap-4 border border-slate-200 animate-in slide-in-from-top-2">
+                            <div className="col-span-2 md:col-span-1"><label className="text-xs font-bold text-slate-400">Model</label><input required className="w-full border p-2 rounded mt-1" value={form.model} onChange={e => setForm({...form, model: e.target.value})} /></div>
+                            <div className="col-span-2 md:col-span-1"><label className="text-xs font-bold text-slate-400">Category</label><select className="w-full border p-2 rounded mt-1 bg-white" value={form.category} onChange={e => setForm({...form, category: e.target.value})}>{CATEGORIES.map(c => <option key={c}>{c}</option>)}</select></div>
+                            <div className="col-span-1"><label className="text-xs font-bold text-slate-400">Price</label><input type="number" required className="w-full border p-2 rounded mt-1" value={form.price} onChange={e => setForm({...form, price: e.target.value})} /></div>
+                            <div className="col-span-1"><label className="text-xs font-bold text-slate-400">Sales</label><input type="number" className="w-full border p-2 rounded mt-1" value={form.sales} onChange={e => setForm({...form, sales: e.target.value})} /></div>
+                            <div className="col-span-2 md:col-span-4 flex justify-end gap-2 pt-2">
+                                <button type="button" onClick={() => setShow(false)} className="px-4 py-2 text-slate-400 font-bold">Cancel</button>
+                                <button className="bg-slate-900 text-white px-8 py-2 rounded font-bold">Save</button>
+                            </div>
+                        </form>
+                    )}
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {items.length > 0 && window.Recharts && (
+                            <div className="bg-white p-4 rounded-xl border shadow-sm h-64">
+                                <h4 className="text-xs font-bold text-slate-400 uppercase mb-2">Price Mix</h4>
+                                <ResponsiveContainer width="100%" height="90%"><PieChart><Pie data={pieData} innerRadius={50} outerRadius={70} dataKey="value" paddingAngle={5}>{pieData.map((entry, index) => <Cell key={`cell-${index}`} fill={SEGMENT_COLORS[entry.name]} stroke="none" />)}</Pie><Tooltip formatter={(v) => `$${v.toLocaleString()}`} /><Legend /></PieChart></ResponsiveContainer>
+                            </div>
+                        )}
+                        <div className="col-span-1 md:col-span-2 overflow-x-auto bg-white rounded-xl shadow-inner border border-slate-200 matrix-scroll">
+                            <div className="min-w-[1300px] grid divide-x divide-slate-100" style={{ gridTemplateColumns: `repeat(${CATEGORIES.length}, minmax(0, 1fr))` }}>
+                                {CATEGORIES.map(cat => (
+                                    <div key={cat}>
+                                        <div className="bg-slate-50 text-center py-2 font-bold text-slate-400 text-[10px] border-b border-slate-200 uppercase tracking-widest">{cat}</div>
+                                        <div className="p-2 space-y-3 min-h-[300px] bg-slate-50/10">
+                                            {items.filter(i => i.category === cat).sort((a,b) => (parseFloat(b.sales)||0)-(parseFloat(a.sales)||0)).map(item => {
+                                                const seg = getSeg(item.price);
+                                                const color = seg === 'Best' ? 'text-emerald-600 bg-emerald-50' : seg === 'Better' ? 'text-blue-600 bg-blue-50' : 'text-amber-600 bg-amber-50';
+                                                return (
+                                                    <div key={item.id} onClick={() => startEdit(item)} className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm hover:shadow-md cursor-pointer transition group relative">
+                                                        <div className="flex justify-between font-bold text-sm"><span>{item.model}</span><span className={`text-[9px] uppercase px-1 rounded ${color}`}>{seg}</span></div>
+                                                        <div className="flex justify-between text-xs text-slate-500 mt-2"><span>${item.price}</span><span className="font-bold text-slate-900">${parseFloat(item.sales || 0).toLocaleString()}</span></div>
+                                                        <button onClick={e => {e.stopPropagation(); onDelete(item.id)}} className="absolute top-1 right-1 hidden group-hover:block text-red-300"><Icon name="Trash" size={14} /></button>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                </main>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
